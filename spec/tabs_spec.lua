@@ -28,4 +28,23 @@ describe("open_or_switch()", function()
 
     assert.equals(file_tab, vim.api.nvim_get_current_tabpage())
   end)
+
+  it("opens file in a new tab when file is not already open", function()
+    local tmp = vim.fn.tempname()
+    local f = io.open(tmp, "w")
+    f:write("world")
+    f:close()
+
+    local before_count = #vim.api.nvim_list_tabpages()
+
+    tabs.open_or_switch(tmp)
+
+    local after_count = #vim.api.nvim_list_tabpages()
+    assert.equals(before_count + 1, after_count)
+
+    local cur_buf = vim.api.nvim_win_get_buf(0)
+    local buf_name = vim.fn.resolve(vim.api.nvim_buf_get_name(cur_buf))
+    local expected = vim.fn.resolve(vim.fn.fnamemodify(tmp, ":p"))
+    assert.equals(expected, buf_name)
+  end)
 end)

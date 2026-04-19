@@ -12,6 +12,7 @@ function M.open_or_switch(file_path)
       end
     end
   end
+  vim.cmd("tabedit " .. vim.fn.fnameescape(resolved_path))
 end
 
 return M
