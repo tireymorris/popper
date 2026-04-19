@@ -71,4 +71,17 @@ describe("integration: start() wiring", function()
 
     assert.equals("/project/src/main.lua", received_path)
   end)
+
+  it("stop() calls watcher.stop_watch", function()
+    local stop_called = false
+    mock_watcher.stop_watch = function()
+      stop_called = true
+    end
+
+    popper.setup({ watch_dir = "/project" })
+    popper.start()
+    popper.stop()
+
+    assert.is_true(stop_called)
+  end)
 end)
