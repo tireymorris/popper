@@ -52,4 +52,23 @@ describe("integration: start() wiring", function()
     assert.equals(watch_dir, called_with_dir)
     assert.equals(patterns, called_with_patterns)
   end)
+
+  it("change callback from start_watch invokes tabs.open_or_switch", function()
+    local saved_callback
+    mock_watcher.start_watch = function(dir, pats, cb)
+      saved_callback = cb
+    end
+
+    local received_path
+    mock_tabs.open_or_switch = function(path)
+      received_path = path
+    end
+
+    popper.setup({ watch_dir = "/project" })
+    popper.start()
+
+    saved_callback("/project/src/main.lua")
+
+    assert.equals("/project/src/main.lua", received_path)
+  end)
 end)
