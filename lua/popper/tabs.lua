@@ -2,6 +2,9 @@ local M = {}
 
 function M.open_or_switch(file_path)
   local resolved_path = vim.fn.resolve(vim.fn.fnamemodify(file_path, ":p"))
+  if vim.fn.filereadable(resolved_path) == 0 then
+    return
+  end
   for _, tabpage in ipairs(vim.api.nvim_list_tabpages()) do
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
       local buf = vim.api.nvim_win_get_buf(win)

@@ -47,4 +47,14 @@ describe("open_or_switch()", function()
     local expected = vim.fn.resolve(vim.fn.fnamemodify(tmp, ":p"))
     assert.equals(expected, buf_name)
   end)
+
+  it("does not open a new tab for a non-existent file path", function()
+    local non_existent = "/tmp/this_file_does_not_exist_12345.lua"
+    local before_count = #vim.api.nvim_list_tabpages()
+
+    tabs.open_or_switch(non_existent)
+
+    local after_count = #vim.api.nvim_list_tabpages()
+    assert.equals(before_count, after_count)
+  end)
 end)
