@@ -1,8 +1,8 @@
 {
-  "version": 2,
+  "version": 9,
   "project_name": "Popper - Neovim File Change Auto-Open Plugin",
   "branch_name": "feature/popper-nvim-file-watcher",
-  "context": "New project - no existing codebase. Neovim plugin written in Lua, using vim.loop (libuv bindings) for recursive filesystem watching. Standard Neovim plugin layout: plugin/popper.lua (entry point), lua/popper/ (modules: init.lua, watcher.lua, gitignore.lua, tabs.lua). Testing via plenary.nvim test harness (busted-style spec files under spec/). Test runner command: nvim --headless -c 'PlenaryBustedDirectory spec/ {minimal_init = \"spec/minimal_init.lua\"}' +quit. The plugin will parse .gitignore files using pattern matching (no external tools), use vim.loop.fs_event for file change detection, and Neovim's tab/buffer API (vim.api.nvim_*) for tab management.",
+  "context": "Neovim plugin in Lua using vim.loop (libuv bindings) for filesystem watching. Standard Neovim plugin layout: plugin/popper.lua (entry point), lua/popper/ (modules: init.lua with setup/start/stop, gitignore.lua with parse_gitignore/is_ignored, watcher.lua, tabs.lua). Testing via plenary.nvim test harness (busted-style spec files under spec/). Test runner command: nvim --headless -u spec/minimal_init.lua -c \"PlenaryBustedDirectory spec/ {minimal_init = 'spec/minimal_init.lua'}\" +quit. The -u flag is required to load plenary before invoking PlenaryBustedDirectory. Setup function accepts config with watch_dir (default vim.loop.cwd()) and poll_interval_ms (default 1000).",
   "test_spec": "1. Given a Neovim session with popper started in a project directory, when a new file is created in a subdirectory (not gitignored), then that file opens in a new tab. 2. Given a file is already open in an existing tab, when that file is modified on disk, then the session switches to that existing tab instead of creating a duplicate. 3. Given a .gitignore file exists with patterns like 'node_modules/' and '*.log', when files matching those patterns are created or modified, then they are not opened by popper. 4. Given popper is running, when the user runs :PopperStop, then subsequent file changes do not trigger any tab openings. 5. Given popper is started with a custom config specifying a watch directory, when files change in that directory, then they are opened; files outside that directory are ignored.",
   "stories": [
     {
@@ -16,8 +16,7 @@
         "Running the test runner command executes spec/popper_spec.lua with at least one passing test that verifies setup() returns start and stop functions"
       ],
       "priority": 1,
-      "passes": false,
-      "retry_count": 1
+      "passes": true
     },
     {
       "id": "story-2",
@@ -32,8 +31,7 @@
         "spec/gitignore_spec.lua contains at least 5 passing tests covering directory, glob, negation, and non-match cases"
       ],
       "priority": 1,
-      "passes": false,
-      "retry_count": 0
+      "passes": true
     },
     {
       "id": "story-3",
@@ -51,8 +49,7 @@
       "depends_on": [
         "story-2"
       ],
-      "passes": false,
-      "retry_count": 0
+      "passes": false
     },
     {
       "id": "story-4",
@@ -66,8 +63,7 @@
         "spec/tabs_spec.lua contains at least 3 passing tests: switch to existing tab, open new tab, handle non-existent file"
       ],
       "priority": 2,
-      "passes": false,
-      "retry_count": 0
+      "passes": false
     },
     {
       "id": "story-5",
@@ -87,8 +83,7 @@
         "story-3",
         "story-4"
       ],
-      "passes": false,
-      "retry_count": 0
+      "passes": false
     }
   ]
 }
