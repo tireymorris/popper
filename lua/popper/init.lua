@@ -21,6 +21,15 @@ function M.setup(opts)
     M.stop()
   end, {})
 
+  if config.auto_start then
+    vim.api.nvim_create_autocmd("VimEnter", {
+      once = true,
+      callback = function()
+        M.start()
+      end,
+    })
+  end
+
   return M
 end
 

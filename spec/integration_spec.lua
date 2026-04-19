@@ -117,3 +117,35 @@ describe("integration: user commands", function()
     assert.is_true(stopped)
   end)
 end)
+
+describe("integration: auto_start", function()
+  it("setup with auto_start=true registers a VimEnter autocmd", function()
+    local popper = require("popper")
+    popper._watcher = {
+      start_watch = function() end,
+      stop_watch = function() end,
+    }
+    popper._gitignore = {
+      parse_gitignore = function() return {} end,
+    }
+    popper._tabs = {
+      open_or_switch = function() end,
+    }
+
+    popper.setup({ watch_dir = "/auto/test", auto_start = true })
+
+    local autocmds = vim.api.nvim_get_autocmds({ event = "VimEnter", pattern = "*" })
+    local found = false
+    for _, au in ipairs(autocmds) do
+      if au.group_name == "" or au.desc == nil then
+        found = true
+      end
+    end
+
+    popper._watcher = require("popper.watcher")
+    popper._gitignore = require("popper.gitignore")
+    popper._tabs = require("popper.tabs")
+
+    assert.is_true(#autocmds > 0, "expected at least one VimEnter autocmd")
+  end)
+end)
