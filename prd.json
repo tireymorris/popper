@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "project_name": "Popper - Neovim File Change Auto-Open Plugin",
   "branch_name": "feature/popper-nvim-file-watcher",
   "context": "Neovim plugin in Lua using vim.loop (libuv bindings) for filesystem watching. Standard Neovim plugin layout: plugin/popper.lua (entry point), lua/popper/ (modules: init.lua with setup/start/stop, gitignore.lua with parse_gitignore/is_ignored, watcher.lua, tabs.lua). Testing via plenary.nvim test harness (busted-style spec files under spec/). Test runner command: nvim --headless -u spec/minimal_init.lua -c \"PlenaryBustedDirectory spec/ {minimal_init = 'spec/minimal_init.lua'}\" +quit. The -u flag is required to load plenary before invoking PlenaryBustedDirectory. Setup function accepts config with watch_dir (default vim.loop.cwd()) and poll_interval_ms (default 1000).",
@@ -49,7 +49,7 @@
       "depends_on": [
         "story-2"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "story-4",
