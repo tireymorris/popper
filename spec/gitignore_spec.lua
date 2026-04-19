@@ -85,4 +85,21 @@ describe("is_ignored()", function()
     assert.is_false(gitignore.is_ignored("src/app.js", patterns, "/project"))
     assert.is_false(gitignore.is_ignored("README.md", patterns, "/project"))
   end)
+
+  it("handles recursive patterns like **/vendor", function()
+    local file = tmpdir .. "_gitignore_6"
+    local f = io.open(file, "w")
+    f:write("**/vendor\n")
+    f:close()
+
+    local patterns = gitignore.parse_gitignore(file)
+    assert.equals(1, #patterns)
+
+    -- Should match vendor anywhere in the path
+    assert.is_true(gitignore.is_ignored("vendor/foo.js", patterns, "/project"))
+    assert.is_true(gitignore.is_ignored("src/vendor/foo.js", patterns, "/project"))
+    assert.is_true(gitignore.is_ignored("a/b/c/vendor/foo.js", patterns, "/project"))
+    -- Should not match vendored (different name)
+    assert.is_false(gitignore.is_ignored("vendored/foo.js", patterns, "/project"))
+  end)
 end)

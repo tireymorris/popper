@@ -12,6 +12,12 @@ local function gitignore_to_lua_pattern(pattern)
     pattern = pattern:sub(1, -2)
   end
 
+  -- Check for recursive patterns starting with **/
+  local is_recursive = pattern:sub(1, 3) == "**/"
+  if is_recursive then
+    pattern = pattern:sub(4)
+  end
+
   -- Temporarily replace ** with placeholder
   pattern = pattern:gsub("%*%*", "\x01")
 
@@ -24,10 +30,7 @@ local function gitignore_to_lua_pattern(pattern)
   -- Restore ** as .* (match anything including /)
   pattern = pattern:gsub("\x01", ".*")
 
-  -- Escape the placeholder in case it wasn't replaced
-  pattern = pattern:gsub("\x01", ".*")
-
-  return pattern, negated, is_dir
+  return pattern, negated, is_dir, is_recursive
 end
 
 function M.parse_gitignore(path)
@@ -39,8 +42,8 @@ function M.parse_gitignore(path)
 
   for line in f:lines() do
     if line ~= "" and not line:match("^%s*#") then
-      local lua_pattern, negated, is_dir = gitignore_to_lua_pattern(line)
-      table.insert(patterns, { pattern = lua_pattern, negated = negated, is_dir = is_dir })
+      local lua_pattern, negated, is_dir, is_recursive = gitignore_to_lua_pattern(line)
+      table.insert(patterns, { pattern = lua_pattern, negated = negated, is_dir = is_dir, is_recursive = is_recursive })
     end
   end
   f:close()
@@ -62,7 +65,17 @@ function M.is_ignored(file_path, patterns, base_dir)
   local ignored = false
   for _, entry in ipairs(patterns) do
     local matched = false
-    if entry.is_dir then
+    if entry.is_recursive then
+      -- Recursive pattern: match pattern anywhere in the path as a path component
+      -- **/vendor should match vendor, src/vendor, a/b/c/vendor
+      local start_pat = "^" .. entry.pattern .. "(/.*)$"
+      local exact_pat = "^" .. entry.pattern .. "$"
+      local anywhere_pat = ".*/" .. entry.pattern .. "(/.*)$"
+      local anywhere_exact = ".*/" .. entry.pattern .. "$"
+      if string.match(rel_path, start_pat) or string.match(rel_path, exact_pat) or string.match(rel_path, anywhere_pat) or string.match(rel_path, anywhere_exact) then
+        matched = true
+      end
+    elseif entry.is_dir then
       -- Directory pattern: match if path contains /dirname/ or starts with dirname/
       local dir_pat = "^" .. entry.pattern .. "/"
       local anywhere_pat = ".*/" .. entry.pattern .. "/"
