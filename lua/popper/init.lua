@@ -13,6 +13,14 @@ function M.setup(opts)
     poll_interval_ms = opts.poll_interval_ms or 1000,
     auto_start = opts.auto_start or false,
   }
+
+  vim.api.nvim_create_user_command("PopperStart", function()
+    M.start()
+  end, {})
+  vim.api.nvim_create_user_command("PopperStop", function()
+    M.stop()
+  end, {})
+
   return M
 end
 

@@ -85,3 +85,35 @@ describe("integration: start() wiring", function()
     assert.is_true(stop_called)
   end)
 end)
+
+describe("integration: user commands", function()
+  it(":PopperStart calls require('popper').start() without error", function()
+    local popper = require("popper")
+    local started = false
+    local orig_start = popper.start
+    popper.start = function()
+      started = true
+    end
+
+    local ok, err = pcall(vim.cmd, "PopperStart")
+
+    popper.start = orig_start
+    assert.is_true(ok, "PopperStart errored: " .. tostring(err))
+    assert.is_true(started)
+  end)
+
+  it(":PopperStop calls require('popper').stop() without error", function()
+    local popper = require("popper")
+    local stopped = false
+    local orig_stop = popper.stop
+    popper.stop = function()
+      stopped = true
+    end
+
+    local ok, err = pcall(vim.cmd, "PopperStop")
+
+    popper.stop = orig_stop
+    assert.is_true(ok, "PopperStop errored: " .. tostring(err))
+    assert.is_true(stopped)
+  end)
+end)
