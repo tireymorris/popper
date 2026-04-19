@@ -12,10 +12,12 @@ local function scan_directories(dir, callback)
     if not name then break end
 
     local full_path = dir .. "/" .. name
+    if name:sub(1, 1) == "." then goto continue end
     if type == "directory" then
       callback(full_path)
       scan_directories(full_path, callback)
     end
+    ::continue::
   end
 end
 
@@ -32,6 +34,7 @@ function M.start_watch(dir, gitignore_patterns, on_change_callback)
       local absolute_path = path .. "/" .. filename
 
       if events and (events.change or events.rename) then
+        if filename:sub(1, 1) == "." then return end
         if not gitignore.is_ignored(absolute_path, gitignore_patterns, dir) then
           vim.schedule(function()
             on_change_callback(absolute_path)
