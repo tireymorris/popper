@@ -1,0 +1,11 @@
+local popper = require("popper")
+
+describe("popper.setup()", function()
+  it("returns a table with start() and stop() methods", function()
+    local result = popper.setup()
+    assert.is_not_nil(result)
+    assert.is_table(result)
+    assert.is_function(result.start)
+    assert.is_function(result.stop)
+  end)
+end)
