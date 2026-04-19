@@ -33,7 +33,9 @@ function M.start_watch(dir, gitignore_patterns, on_change_callback)
 
       if events and (events.change or events.rename) then
         if not gitignore.is_ignored(absolute_path, gitignore_patterns, dir) then
-          on_change_callback(absolute_path)
+          vim.schedule(function()
+            on_change_callback(absolute_path)
+          end)
         end
       end
     end)
