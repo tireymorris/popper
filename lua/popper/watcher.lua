@@ -3,7 +3,7 @@ local gitignore = require("popper.gitignore")
 
 local handles = {}
 
-local function scan_directories(dir, callback)
+local function scan_directories(dir, callback, should_descend)
   local handle = vim.loop.fs_scandir(dir)
   if not handle then return end
 
@@ -14,8 +14,15 @@ local function scan_directories(dir, callback)
     local full_path = dir .. "/" .. name
     if name:sub(1, 1) == "." then goto continue end
     if type == "directory" then
-      callback(full_path)
-      scan_directories(full_path, callback)
+      local descend = true
+      if should_descend then
+        descend = should_descend(full_path)
+      end
+
+      if descend then
+        callback(full_path)
+        scan_directories(full_path, callback, should_descend)
+      end
     end
     ::continue::
   end
@@ -48,9 +55,9 @@ function M.start_watch(dir, gitignore_patterns, on_change_callback)
   watch_dir(dir)
 
   scan_directories(dir, function(subdir)
-    if not gitignore.is_ignored(subdir, gitignore_patterns, dir) then
-      watch_dir(subdir)
-    end
+    watch_dir(subdir)
+  end, function(subdir)
+    return not gitignore.is_ignored(subdir, gitignore_patterns, dir)
   end)
 end
 

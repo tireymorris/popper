@@ -74,6 +74,34 @@ describe("watcher", function()
     end
   end)
 
+  it("does not scan into gitignored directories", function()
+    local ignored_dir = tmpdir .. "/node_modules"
+    local nested_dir = ignored_dir .. "/pkg"
+    vim.fn.mkdir(nested_dir, "p")
+
+    local original_fs_scandir = vim.loop.fs_scandir
+    local scanned_paths = {}
+    vim.loop.fs_scandir = function(path)
+      table.insert(scanned_paths, path)
+      return original_fs_scandir(path)
+    end
+
+    local patterns = {
+      { pattern = "node_modules", negated = false, is_dir = true, is_recursive = false },
+    }
+
+    local ok, err = pcall(function()
+      watcher.start_watch(tmpdir, patterns, function() end)
+    end)
+
+    vim.loop.fs_scandir = original_fs_scandir
+
+    assert.is_true(ok, err)
+    assert.is_true(vim.tbl_contains(scanned_paths, tmpdir), "expected root directory to be scanned")
+    assert.is_not_true(vim.tbl_contains(scanned_paths, ignored_dir), "ignored directory should not be scanned")
+    assert.is_not_true(vim.tbl_contains(scanned_paths, nested_dir), "nested ignored directory should not be scanned")
+  end)
+
   it("stop_watch prevents further callbacks", function()
     local received_paths = {}
     local callback = function(path)

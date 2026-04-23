@@ -76,10 +76,15 @@ function M.is_ignored(file_path, patterns, base_dir)
         matched = true
       end
     elseif entry.is_dir then
-      -- Directory pattern: match if path contains /dirname/ or starts with dirname/
+      -- Directory pattern: match the directory itself or anything inside it
+      local exact_pat = "^" .. entry.pattern .. "$"
       local dir_pat = "^" .. entry.pattern .. "/"
+      local anywhere_exact = ".*/" .. entry.pattern .. "$"
       local anywhere_pat = ".*/" .. entry.pattern .. "/"
-      if string.match(rel_path, dir_pat) or string.match(rel_path, anywhere_pat) then
+      if string.match(rel_path, exact_pat)
+        or string.match(rel_path, dir_pat)
+        or string.match(rel_path, anywhere_exact)
+        or string.match(rel_path, anywhere_pat) then
         matched = true
       end
     else
