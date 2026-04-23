@@ -74,6 +74,33 @@ describe("watcher", function()
     end
   end)
 
+  it("starts directory scanning asynchronously", function()
+    local nested_dir = tmpdir .. "/a/b/c"
+    vim.fn.mkdir(nested_dir, "p")
+
+    local original_fs_scandir = vim.loop.fs_scandir
+    local scanned_paths = {}
+    vim.loop.fs_scandir = function(path)
+      table.insert(scanned_paths, path)
+      return original_fs_scandir(path)
+    end
+
+    local ok, err = pcall(function()
+      watcher.start_watch(tmpdir, {}, function() end)
+    end)
+
+    assert.is_true(ok, err)
+    assert.are.same({}, scanned_paths)
+
+    local scanned = vim.wait(2000, function()
+      return vim.tbl_contains(scanned_paths, tmpdir)
+    end, 20)
+
+    vim.loop.fs_scandir = original_fs_scandir
+
+    assert.is_true(scanned, "expected root directory to be scanned on the event loop")
+  end)
+
   it("does not scan into gitignored directories", function()
     local ignored_dir = tmpdir .. "/node_modules"
     local nested_dir = ignored_dir .. "/pkg"
@@ -94,10 +121,14 @@ describe("watcher", function()
       watcher.start_watch(tmpdir, patterns, function() end)
     end)
 
+    local scanned = vim.wait(2000, function()
+      return vim.tbl_contains(scanned_paths, tmpdir)
+    end, 20)
+
     vim.loop.fs_scandir = original_fs_scandir
 
     assert.is_true(ok, err)
-    assert.is_true(vim.tbl_contains(scanned_paths, tmpdir), "expected root directory to be scanned")
+    assert.is_true(scanned, "expected root directory to be scanned")
     assert.is_not_true(vim.tbl_contains(scanned_paths, ignored_dir), "ignored directory should not be scanned")
     assert.is_not_true(vim.tbl_contains(scanned_paths, nested_dir), "nested ignored directory should not be scanned")
   end)
