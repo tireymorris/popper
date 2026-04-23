@@ -74,6 +74,65 @@ describe("watcher", function()
     end
   end)
 
+  it("watches files created in newly created directories", function()
+    local received_paths = {}
+    local callback = function(path)
+      table.insert(received_paths, path)
+    end
+
+    watcher.start_watch(tmpdir, {}, callback)
+    vim.loop.sleep(100)
+
+    local subdir = tmpdir .. "/new_subdir"
+    vim.fn.mkdir(subdir, "p")
+
+    local watched = vim.wait(2000, function()
+      local nested_file = subdir .. "/nested.lua"
+      local f = io.open(nested_file, "w")
+      if f then
+        f:write("print('hi')")
+        f:close()
+      end
+
+      for _, p in ipairs(received_paths) do
+        if p == nested_file then return true end
+      end
+      return false
+    end, 100)
+
+    assert.is_true(watched, "expected callback for file inside newly created directory, got: " .. vim.inspect(received_paths))
+  end)
+
+  it("does not watch newly created gitignored directories", function()
+    local received_paths = {}
+    local callback = function(path)
+      table.insert(received_paths, path)
+    end
+
+    local patterns = {
+      { pattern = "node_modules", negated = false, is_dir = true, is_recursive = false },
+    }
+
+    watcher.start_watch(tmpdir, patterns, callback)
+    vim.loop.sleep(100)
+
+    local ignored_dir = tmpdir .. "/node_modules"
+    vim.fn.mkdir(ignored_dir, "p")
+
+    local ignored_file = ignored_dir .. "/ignored.lua"
+    local f = io.open(ignored_file, "w")
+    f:write("print('ignored')")
+    f:close()
+
+    vim.wait(1000, function()
+      return false
+    end, 100)
+
+    for _, p in ipairs(received_paths) do
+      assert.is_not_true(p == ignored_file, "gitignored file in new directory should not trigger callback: " .. p)
+    end
+  end)
+
   it("starts directory scanning asynchronously", function()
     local nested_dir = tmpdir .. "/a/b/c"
     vim.fn.mkdir(nested_dir, "p")

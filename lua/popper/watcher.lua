@@ -2,6 +2,7 @@ local M = {}
 local gitignore = require("popper.gitignore")
 
 local handles = {}
+local watched_paths = {}
 local scan_generation = 0
 
 local function scan_directories_async(dir, callback, should_descend)
@@ -57,33 +58,41 @@ function M.start_watch(dir, gitignore_patterns, on_change_callback)
   gitignore_patterns = gitignore_patterns or {}
   scan_generation = scan_generation + 1
 
+  local function should_watch(path)
+    return not gitignore.is_ignored(path, gitignore_patterns, dir)
+  end
+
   local function watch_dir(path)
+    if watched_paths[path] then return end
+    watched_paths[path] = true
+
     local handle = vim.loop.new_fs_event()
     handle:start(path, {}, function(err, filename, events)
       if err then return end
       if not filename then return end
+      if filename:sub(1, 1) == "." then return end
+      if not (events and (events.change or events.rename)) then return end
 
       local absolute_path = path .. "/" .. filename
+      if not should_watch(absolute_path) then return end
 
-      if events and (events.change or events.rename) then
-        if filename:sub(1, 1) == "." then return end
-        if not gitignore.is_ignored(absolute_path, gitignore_patterns, dir) then
-          vim.schedule(function()
-            on_change_callback(absolute_path)
-          end)
-        end
+      local stat = vim.loop.fs_stat(absolute_path)
+      if stat and stat.type == "directory" then
+        watch_dir(absolute_path)
+        scan_directories_async(absolute_path, watch_dir, should_watch)
+        return
       end
+
+      vim.schedule(function()
+        on_change_callback(absolute_path)
+      end)
     end)
     table.insert(handles, handle)
   end
 
   watch_dir(dir)
 
-  scan_directories_async(dir, function(subdir)
-    watch_dir(subdir)
-  end, function(subdir)
-    return not gitignore.is_ignored(subdir, gitignore_patterns, dir)
-  end)
+  scan_directories_async(dir, watch_dir, should_watch)
 end
 
 function M.stop_watch()
@@ -94,6 +103,7 @@ function M.stop_watch()
     handle:close()
   end
   handles = {}
+  watched_paths = {}
 end
 
 return M
