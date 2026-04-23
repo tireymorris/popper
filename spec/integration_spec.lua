@@ -118,7 +118,24 @@ describe("integration: user commands", function()
   end)
 end)
 
-describe("integration: auto_start", function()
+describe("integration: autocmd lifecycle", function()
+  it("setup always registers a VimLeavePre autocmd that stops watchers", function()
+    local popper = require("popper")
+    local stopped = false
+    local orig_stop = popper.stop
+
+    popper.stop = function()
+      stopped = true
+    end
+
+    popper.setup({ watch_dir = "/auto/test" })
+    vim.api.nvim_exec_autocmds("VimLeavePre", {})
+
+    popper.stop = orig_stop
+
+    assert.is_true(stopped)
+  end)
+
   it("setup with auto_start=true registers a VimEnter autocmd", function()
     local popper = require("popper")
     popper._watcher = {
@@ -134,18 +151,12 @@ describe("integration: auto_start", function()
 
     popper.setup({ watch_dir = "/auto/test", auto_start = true })
 
-    local autocmds = vim.api.nvim_get_autocmds({ event = "VimEnter", pattern = "*" })
-    local found = false
-    for _, au in ipairs(autocmds) do
-      if au.group_name == "" or au.desc == nil then
-        found = true
-      end
-    end
+    local autocmds = vim.api.nvim_get_autocmds({ event = "VimEnter", group = "Popper" })
 
     popper._watcher = require("popper.watcher")
     popper._gitignore = require("popper.gitignore")
     popper._tabs = require("popper.tabs")
 
-    assert.is_true(#autocmds > 0, "expected at least one VimEnter autocmd")
+    assert.is_true(#autocmds > 0, "expected at least one Popper VimEnter autocmd")
   end)
 end)

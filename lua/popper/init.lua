@@ -5,6 +5,7 @@ M._gitignore = require("popper.gitignore")
 M._tabs = require("popper.tabs")
 
 local config = {}
+local augroup = vim.api.nvim_create_augroup("Popper", { clear = false })
 
 function M.setup(opts)
   opts = opts or {}
@@ -21,12 +22,24 @@ function M.setup(opts)
     M.stop()
   end, {})
 
+  vim.api.nvim_clear_autocmds({ group = augroup })
+
+  vim.api.nvim_create_autocmd("VimLeavePre", {
+    group = augroup,
+    callback = function()
+      M.stop()
+    end,
+    desc = "Stop Popper file watchers before Neovim exits",
+  })
+
   if config.auto_start then
     vim.api.nvim_create_autocmd("VimEnter", {
+      group = augroup,
       once = true,
       callback = function()
         M.start()
       end,
+      desc = "Start Popper on VimEnter",
     })
   end
 
