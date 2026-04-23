@@ -31,7 +31,7 @@ describe("integration: start() wiring", function()
     popper._tabs = require("popper.tabs")
   end)
 
-  it("start() calls watcher.start_watch with watch_dir and gitignore patterns", function()
+  it("start() calls watcher.start_watch with watch_dir, gitignore patterns, and poll interval", function()
     local watch_dir = "/some/project"
     local patterns = { { pattern = "node_modules", negated = false, is_dir = true, is_recursive = false } }
 
@@ -40,17 +40,19 @@ describe("integration: start() wiring", function()
       return patterns
     end
 
-    local called_with_dir, called_with_patterns
-    mock_watcher.start_watch = function(dir, pats, cb)
+    local called_with_dir, called_with_patterns, called_with_opts
+    mock_watcher.start_watch = function(dir, pats, cb, opts)
       called_with_dir = dir
       called_with_patterns = pats
+      called_with_opts = opts
     end
 
-    popper.setup({ watch_dir = watch_dir })
+    popper.setup({ watch_dir = watch_dir, poll_interval_ms = 250 })
     popper.start()
 
     assert.equals(watch_dir, called_with_dir)
     assert.equals(patterns, called_with_patterns)
+    assert.are.same({ poll_interval_ms = 250 }, called_with_opts)
   end)
 
   it("change callback from start_watch invokes tabs.open_or_switch", function()
@@ -87,6 +89,15 @@ describe("integration: start() wiring", function()
 end)
 
 describe("integration: user commands", function()
+  it("setup can be called repeatedly without duplicating command errors", function()
+    local ok, err = pcall(function()
+      popper.setup({ watch_dir = "/project" })
+      popper.setup({ watch_dir = "/project" })
+    end)
+
+    assert.is_true(ok, "repeated setup errored: " .. tostring(err))
+  end)
+
   it(":PopperStart calls require('popper').start() without error", function()
     local popper = require("popper")
     local started = false

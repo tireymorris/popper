@@ -1,6 +1,6 @@
 # Popper
 
-Neovim plugin that watches a directory for file changes and auto-opens/switches to those files in tabs. Respects `.gitignore` patterns and automatically starts watching newly created subdirectories.
+Neovim plugin that polls a directory tree for file changes and auto-opens/switches to those files in tabs. Respects `.gitignore` patterns and automatically notices newly created subdirectories without requiring a watcher per directory.
 
 ## Setup
 
@@ -43,6 +43,7 @@ require("popper").setup()
 require("popper").setup({
   watch_dir = vim.loop.cwd(),  -- directory to watch (default: cwd)
   poll_interval_ms = 1000,      -- polling interval in ms (default: 1000)
+                                  -- lower is more responsive, higher is lighter on large repos
   auto_start = false,           -- auto-start on VimEnter (default: false)
 })
 ```

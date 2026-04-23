@@ -51,7 +51,9 @@ function M.start()
   local patterns = M._gitignore.parse_gitignore(gitignore_path)
   M._watcher.start_watch(config.watch_dir, patterns, function(path)
     M._tabs.open_or_switch(path)
-  end)
+  end, {
+    poll_interval_ms = config.poll_interval_ms,
+  })
 end
 
 function M.stop()

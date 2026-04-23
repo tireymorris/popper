@@ -3,6 +3,7 @@ local gitignore = require("popper.gitignore")
 
 describe("watcher", function()
   local tmpdir
+  local watch_opts = { poll_interval_ms = 50 }
 
   before_each(function()
     tmpdir = vim.fn.tempname()
@@ -19,8 +20,10 @@ describe("watcher", function()
       table.insert(received_paths, path)
     end
 
-    watcher.start_watch(tmpdir, {}, callback)
-    vim.loop.sleep(100)
+    watcher.start_watch(tmpdir, {}, callback, watch_opts)
+    vim.wait(150, function()
+      return false
+    end, 10)
 
     local filepath = tmpdir .. "/test_file.lua"
     local f = io.open(filepath, "w")
@@ -47,8 +50,10 @@ describe("watcher", function()
     local extra = { pattern = "[^/]*%.log", negated = false, is_dir = false, is_recursive = false }
     table.insert(patterns, extra)
 
-    watcher.start_watch(tmpdir, patterns, callback)
-    vim.loop.sleep(100)
+    watcher.start_watch(tmpdir, patterns, callback, watch_opts)
+    vim.wait(150, function()
+      return false
+    end, 10)
 
     local logpath = tmpdir .. "/debug.log"
     local f = io.open(logpath, "w")
@@ -80,8 +85,10 @@ describe("watcher", function()
       table.insert(received_paths, path)
     end
 
-    watcher.start_watch(tmpdir, {}, callback)
-    vim.loop.sleep(100)
+    watcher.start_watch(tmpdir, {}, callback, watch_opts)
+    vim.wait(150, function()
+      return false
+    end, 10)
 
     local subdir = tmpdir .. "/new_subdir"
     vim.fn.mkdir(subdir, "p")
@@ -103,6 +110,35 @@ describe("watcher", function()
     assert.is_true(watched, "expected callback for file inside newly created directory, got: " .. vim.inspect(received_paths))
   end)
 
+  it("detects files created in pre-existing deep directories even in large trees", function()
+    for i = 1, 3000 do
+      vim.fn.mkdir(tmpdir .. "/x" .. i, "p")
+    end
+    local deep_dir = tmpdir .. "/target/a/b/c"
+    vim.fn.mkdir(deep_dir, "p")
+
+    local received_paths = {}
+    watcher.start_watch(tmpdir, {}, function(path)
+      table.insert(received_paths, path)
+    end, watch_opts)
+
+    local target = deep_dir .. "/file.lua"
+    vim.defer_fn(function()
+      local f = io.open(target, "w")
+      f:write("hello")
+      f:close()
+    end, 10)
+
+    local ok = vim.wait(3000, function()
+      for _, p in ipairs(received_paths) do
+        if p == target then return true end
+      end
+      return false
+    end, 50)
+
+    assert.is_true(ok, "expected callback for deep file in large tree, got: " .. vim.inspect(received_paths))
+  end)
+
   it("does not watch newly created gitignored directories", function()
     local received_paths = {}
     local callback = function(path)
@@ -113,8 +149,10 @@ describe("watcher", function()
       { pattern = "node_modules", negated = false, is_dir = true, is_recursive = false },
     }
 
-    watcher.start_watch(tmpdir, patterns, callback)
-    vim.loop.sleep(100)
+    watcher.start_watch(tmpdir, patterns, callback, watch_opts)
+    vim.wait(150, function()
+      return false
+    end, 10)
 
     local ignored_dir = tmpdir .. "/node_modules"
     vim.fn.mkdir(ignored_dir, "p")
@@ -145,7 +183,7 @@ describe("watcher", function()
     end
 
     local ok, err = pcall(function()
-      watcher.start_watch(tmpdir, {}, function() end)
+      watcher.start_watch(tmpdir, {}, function() end, watch_opts)
     end)
 
     assert.is_true(ok, err)
@@ -177,7 +215,7 @@ describe("watcher", function()
     }
 
     local ok, err = pcall(function()
-      watcher.start_watch(tmpdir, patterns, function() end)
+      watcher.start_watch(tmpdir, patterns, function() end, watch_opts)
     end)
 
     local scanned = vim.wait(2000, function()
@@ -198,8 +236,10 @@ describe("watcher", function()
       table.insert(received_paths, path)
     end
 
-    watcher.start_watch(tmpdir, {}, callback)
-    vim.loop.sleep(100)
+    watcher.start_watch(tmpdir, {}, callback, watch_opts)
+    vim.wait(150, function()
+      return false
+    end, 10)
 
     local filepath = tmpdir .. "/before_stop.lua"
     local f = io.open(filepath, "w")
@@ -221,9 +261,9 @@ describe("watcher", function()
     g:write("after")
     g:close()
 
-    vim.wait(1500, function()
+    vim.wait(500, function()
       return false
-    end, 100)
+    end, 50)
 
     for _, p in ipairs(received_paths) do
       assert.is_not_true(p == after_path, "callback should not fire after stop_watch: " .. p)

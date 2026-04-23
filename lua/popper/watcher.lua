@@ -1,21 +1,33 @@
 local M = {}
 local gitignore = require("popper.gitignore")
 
-local handles = {}
-local watched_paths = {}
+local timer = nil
 local scan_generation = 0
+local known_files = {}
+local scan_in_progress = false
+local rescan_requested = false
 
-local function scan_directories_async(dir, callback, should_descend)
+local function file_fingerprint(stat)
+  local mtime = stat.mtime or {}
+  return table.concat({
+    stat.size or 0,
+    mtime.sec or 0,
+    mtime.nsec or 0,
+  }, ":")
+end
+
+local function scan_files_async(dir, on_file, should_descend, on_done, generation)
   local queue = { dir }
   local queue_index = 1
-  local generation = scan_generation
-  local batch_size = 64
+  local batch_size = 512
 
   local function step()
     if generation ~= scan_generation then return end
 
     local processed = 0
     while queue_index <= #queue and processed < batch_size do
+      if generation ~= scan_generation then return end
+
       local current_dir = queue[queue_index]
       queue_index = queue_index + 1
       processed = processed + 1
@@ -23,22 +35,25 @@ local function scan_directories_async(dir, callback, should_descend)
       local handle = vim.loop.fs_scandir(current_dir)
       if handle then
         while true do
+          if generation ~= scan_generation then return end
+
           local name, type = vim.loop.fs_scandir_next(handle)
           if not name then break end
+          if name:sub(1, 1) == "." then goto continue end
 
           local full_path = current_dir .. "/" .. name
-          if name:sub(1, 1) == "." then goto continue end
           if type == "directory" then
             local descend = true
             if should_descend then
               descend = should_descend(full_path)
             end
-
             if descend then
-              callback(full_path)
               queue[#queue + 1] = full_path
             end
+          elseif type == "file" then
+            on_file(full_path)
           end
+
           ::continue::
         end
       end
@@ -47,63 +62,108 @@ local function scan_directories_async(dir, callback, should_descend)
     if generation ~= scan_generation then return end
     if queue_index <= #queue then
       vim.schedule(step)
+    else
+      on_done()
     end
   end
 
   vim.schedule(step)
 end
 
-function M.start_watch(dir, gitignore_patterns, on_change_callback)
+local function stop_timer()
+  if not timer then return end
+  pcall(function()
+    timer:stop()
+  end)
+  pcall(function()
+    timer:close()
+  end)
+  timer = nil
+end
+
+function M.start_watch(dir, gitignore_patterns, on_change_callback, opts)
   M.stop_watch()
+
   gitignore_patterns = gitignore_patterns or {}
+  opts = opts or {}
+
   scan_generation = scan_generation + 1
+  local generation = scan_generation
+  local poll_interval_ms = opts.poll_interval_ms or 1000
+  local baseline_complete = false
 
   local function should_watch(path)
     return not gitignore.is_ignored(path, gitignore_patterns, dir)
   end
 
-  local function watch_dir(path)
-    if watched_paths[path] then return end
-    watched_paths[path] = true
+  local function schedule_scan(run_scan)
+    if generation ~= scan_generation then return end
+    stop_timer()
+    timer = vim.loop.new_timer()
+    timer:start(poll_interval_ms, 0, vim.schedule_wrap(function()
+      run_scan()
+    end))
+  end
 
-    local handle = vim.loop.new_fs_event()
-    handle:start(path, {}, function(err, filename, events)
-      if err then return end
-      if not filename then return end
-      if filename:sub(1, 1) == "." then return end
-      if not (events and (events.change or events.rename)) then return end
+  local function run_scan()
+    if generation ~= scan_generation then return end
+    if scan_in_progress then
+      rescan_requested = true
+      return
+    end
 
-      local absolute_path = path .. "/" .. filename
-      if not should_watch(absolute_path) then return end
+    scan_in_progress = true
+    local next_known_files = {}
 
-      local stat = vim.loop.fs_stat(absolute_path)
-      if stat and stat.type == "directory" then
-        watch_dir(absolute_path)
-        scan_directories_async(absolute_path, watch_dir, should_watch)
+    scan_files_async(dir, function(path)
+      if generation ~= scan_generation then return end
+      if not should_watch(path) then return end
+
+      local stat = vim.loop.fs_stat(path)
+      if not stat or stat.type ~= "file" then return end
+
+      local fingerprint = file_fingerprint(stat)
+      next_known_files[path] = fingerprint
+
+      local previous = known_files[path]
+      if baseline_complete and previous ~= fingerprint then
+        vim.schedule(function()
+          if generation ~= scan_generation then return end
+          on_change_callback(path)
+        end)
+      end
+    end, should_watch, function()
+      if generation ~= scan_generation then return end
+
+      known_files = next_known_files
+      scan_in_progress = false
+
+      if not baseline_complete then
+        baseline_complete = true
+      end
+
+      if rescan_requested then
+        rescan_requested = false
+        vim.schedule(run_scan)
         return
       end
 
-      vim.schedule(function()
-        on_change_callback(absolute_path)
-      end)
-    end)
-    table.insert(handles, handle)
+      schedule_scan(run_scan)
+    end, generation)
   end
 
-  watch_dir(dir)
-
-  scan_directories_async(dir, watch_dir, should_watch)
+  known_files = {}
+  scan_in_progress = false
+  rescan_requested = false
+  run_scan()
 end
 
 function M.stop_watch()
   scan_generation = scan_generation + 1
-
-  for _, handle in ipairs(handles) do
-    handle:stop()
-    handle:close()
-  end
-  handles = {}
-  watched_paths = {}
+  stop_timer()
+  known_files = {}
+  scan_in_progress = false
+  rescan_requested = false
 end
 
 return M
