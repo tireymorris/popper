@@ -1,6 +1,6 @@
 # Popper
 
-Neovim plugin that watches a directory for file changes and auto-opens/switches to those files in tabs. Respects `.gitignore` patterns.
+Neovim plugin that watches a directory for file changes and auto-opens/switches to those files in tabs. Respects `.gitignore` patterns and automatically starts watching newly created subdirectories.
 
 ## Setup
 
